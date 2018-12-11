@@ -253,9 +253,9 @@ def editrequest(request,pk1,pk2):
             info.save()
     return redirect(reverse('user:requestlist'))
 
-@login_required()
+# @login_required()
 def graph(request): # 그래프를 그리기 위한 데이터를 뽑습니다.
-    # if request.method=="POST":
+    if request.method=="GET":
         if request.user.is_authenticated:
             user = request.user
             users2=User.objects.filter(grade=2)
@@ -282,7 +282,7 @@ def graph(request): # 그래프를 그리기 위한 데이터를 뽑습니다.
 
             elif user.grade==2:
                 for user3 in users3:
-                    queryset3 = Timelog.objects.filter(#created_at__week_day__lte=datetime.datetime.now().weekday(),
+                    queryset3 = Timelog.objects.filter(#created_at__week_day__lte=datetime.datetime.now().weekday(), -> 일주일 데이터만 보여줌.
                                                        created_at__gt=datetime.datetime.now() - datetime.timedelta(days=8),
                                                        user=user3).order_by('created_at')
                     grade3data[user3] = get_graph(queryset3)
@@ -291,12 +291,12 @@ def graph(request): # 그래프를 그리기 위한 데이터를 뽑습니다.
             else:
                 return render(request,'home/graph.html',context={'own':own,'grade2data':None,'grade3data':grade3data})
         else:
-            return HttpResponse('What are you doing?')
-    # else:
-    #     return render(request, 'registration/login.html')
+            return render(request,'registration/base.html')
+    else:
+        return render(request, 'registration/base.html')
 
 
-def get_graph(queryset):  # 그래프를 그리기 위한 데이터를 뽑습니다.
+def get_graph(queryset):  # 그래프를 그리기 위한 함수.
         work_times = {}
         iterator = queryset.iterator()
         for timelog in iterator:
