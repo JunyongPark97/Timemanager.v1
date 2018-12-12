@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -13,12 +14,51 @@ from django.utils import timezone
 import datetime
 import  time
 from datetime import timedelta
+
+from rest_framework import mixins
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet, GenericViewSet
 
 from user.forms import RequestForm1, RequestForm2, RequestForm3
 from user.models import *
-from user.serializers import CSVSerializer, UserSerializer
+from user.permissions import GradePermission
+from user.serializers import UserSerializer, EnterTimelogSerializer, OutTimelogSerializer, \
+    EnterAtHomeTimelogSerializer, OutAtHomeTimelogSerializer
+
+
+class TimelogReadOnlyViewSet(mixins.CreateModelMixin,# 모델 뷰셋 인데 따로 기능 수정해야 해서 선언
+                             mixins.RetrieveModelMixin,
+                             mixins.ListModelMixin,
+                             GenericViewSet):
+
+    def get_queryset(self): #원래 있는 함수인데 덮어쓰기함
+        if self.action == 'list':# 시리얼라이저에서 지원해주는 거 : action이 list 조회일때
+            user = self.request.user
+            return self.queryset.filter(Q(user__grade__gt=user.grade)|Q(user=user))# or 쓰려면 Q써야함
+        return self.queryset
+
+
+class EnterTimelogViewSet(TimelogReadOnlyViewSet):
+    queryset = EnterTimelog.objects.all()
+    permission_classes = (IsAuthenticated, GradePermission)
+    serializer_class = EnterTimelogSerializer
+
+class OutTimelogViewSet(TimelogReadOnlyViewSet):
+    queryset = OutTimelog.objects.all()
+    permission_classes = (IsAuthenticated, GradePermission)
+    serializer_class = OutTimelogSerializer
+
+class EnterAtHomeTimelogViewSet(TimelogReadOnlyViewSet):
+    queryset = EnterAtHomeTimelog.objects.all()
+    permission_classes = (IsAuthenticated, GradePermission)
+    serializer_class = EnterAtHomeTimelogSerializer
+
+class OutAtHomeTimelogViewSet(TimelogReadOnlyViewSet):
+    queryset = OutAtHomeTimelog.objects.all()
+    permission_classes = (IsAuthenticated, GradePermission)
+    serializer_class = OutAtHomeTimelogSerializer
 
 
 def logout_view(request):
@@ -44,107 +84,106 @@ class ImportUserView(APIView):
         return Response({})
 
 
-#각 유저별로 출퇴근 데이터를 얻어옵니다.
-class ImportCSVView(APIView):
-    serializer_class = CSVSerializer # 받아온 값 저장
-
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        csv_file = data['csv']
-        import csv
-        decoded_file = csv_file.read().decode('utf-8')
-        io_string = io.StringIO(decoded_file)
-        reader = csv.reader(io_string, delimiter=',')
-        next(reader)#첫줄 띄기
-        for line in reader:
-            user = User.objects.get(pk=line[0])
-            text=line[1].strip()
-            recent_timelog = user.timelog_set.all().order_by('-created_at').first()
-            print(line[3])
-            try:
-                if text == '/출근':
-                    temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
-
-                    if not recent_timelog:#이전 자료가 아무것도 없거나
-                        Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
-                        half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)# 퇴근-출근 쌍 맞추기
-                    elif recent_timelog.keyword in [2,4]:#2 : 퇴근
-                        Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
-                        half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)
-                    elif recent_timelog.keyword == 1:# 이 전 기록이 출근일 때 퇴근 만들기
-                        Timelog.objects.create(user=user, text='/퇴근', keyword=2, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')#1분 빼주기
-                        Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
-                        half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)# 퇴근-출근 쌍 맞추기
-                    elif recent_timelog.keyword == 3:# == 3 이 전 기록이 출근 (재택)
-                        Timelog.objects.create(user=user, text='/퇴근 (재택)', keyword=4, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')# 얘도
-                        Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
-                        half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)# 퇴근-출근 쌍 맞추기
-                        # else:
-                        #     Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
-                        #                            half_day_off='오전반차'if temptime.time()>datetime.time(12) else None)
-
-                elif text == '/출근 (재택)':
-                    temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
-
-                    if not recent_timelog or recent_timelog.keyword in [2, 4]:
-                        Timelog.objects.create(user=user, text=text, keyword=3, created_at=temptime)# 퇴근-출근 쌍 맞추기
-                    elif recent_timelog.keyword == 1:
-                        Timelog.objects.create(user=user, text='/퇴근', keyword=2, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')  # 1분 빼주기
-                        Timelog.objects.create(user=user, text=text, keyword=3, created_at=temptime)
-                    else:
-                        Timelog.objects.create(user=user, text='/퇴근 (재택)', keyword=4, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')  # 얘도
-                        Timelog.objects.create(user=user, text=text, keyword=3, created_at=temptime)
-
-                elif text == '/퇴근 (재택)':
-                    temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
-                    if not recent_timelog:
-                        Timelog.objects.create(user=user, text=text, keyword=4, created_at=temptime)
-                    elif recent_timelog.keyword == 3:
-                        Timelog.objects.create(user=user, text=text, keyword=4, created_at=temptime)
-
-                elif text[:3] == '/퇴근' and len(text.split()) == 3: # /퇴근 -2 오후반차
-                    temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
-                    if not recent_timelog or recent_timelog.keyword == 1:
-                        breaks=abs(int(text.split()[1]))
-                        Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,created_at=temptime-timedelta(hours=breaks), half_day_off='오후 반차')#휴게시간 빼줌
-                    elif recent_timelog.keyword in [2,4]:# 이전 기록이 /퇴근 또는 /퇴근 (재택) 인 경우 휴게시간+한시간 전 출근 하나 만들고 퇴근 찍음
-                        breaks=abs(int(text.split()[1]))
-                        Timelog.objects.create(user=user, text='/출근', keyword=1,created_at=temptime - timedelta(hours=breaks+1),half_day_off='자동생성')
-                        Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,
-                                               created_at=temptime - timedelta(hours=breaks),
-                                               half_day_off='오후 반차')  # 휴게시간 빼줌
-
-                elif text[:3] == '/퇴근' and len(text.split()) == 2:
-                    temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
-                    if not recent_timelog:
-                        if text.split()[1]=='오후반차':
-                            Timelog.objects.create(user=user, text='/출근', keyword=1, created_at=temptime-timedelta(hours=1))#
-                            Timelog.objects.create(user=user, text=text, keyword=2,
-                                                   created_at=temptime, half_day_off='오후 반차')
-                        else:
-                            breaks = abs(int(text.split()[1]))
-                            Timelog.objects.create(user=user, text='/출근', keyword=1, breaktime=breaks,created_at=temptime-timedelta(hours=(breaks+1)))#
-                            Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,created_at=temptime-timedelta(hours=breaks))# 휴게시간 뺴줌
-                    elif recent_timelog.keyword == 1:# 정상적인 작동
-                        if text.split()[1] == '오후반차':
-                            Timelog.objects.create(user=user, text=text, keyword=2,
-                                                   created_at=temptime, half_day_off='오후 반차')
-                        else:
-                            breaks = abs(int(text.split()[1]))
-                            Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,
-                                                   created_at=temptime - timedelta(hours=breaks))  # 휴게시간 뺴줌
-                    elif recent_timelog.keyword in [2,4]: # 이전 기록이 /퇴근 또는 /퇴근 (재택)
-                        breaks = abs(int(text.split()[1]))
-                        Timelog.objects.create(user=user, text='/출근', keyword=1,
-                                               created_at=temptime - timedelta(hours=breaks + 1), half_day_off='자동생성')
-                        Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,
-                                               created_at=temptime - timedelta(hours=breaks))  # 휴게시간 빼줌
-            except:
-                pass
-
-        return Response({})
+# #각 유저별로 출퇴근 데이터를 얻어옵니다.
+# class ImportCSVView(APIView):
+#     # serializer_class = CSVSerializer # 받아온 값 저장
+#
+#     def post(self, request):
+#         serializer = self.serializer_class(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         data = serializer.validated_data
+#         csv_file = data['csv']
+#         import csv
+#         decoded_file = csv_file.read().decode('utf-8')
+#         io_string = io.StringIO(decoded_file)
+#         reader = csv.reader(io_string, delimiter=',')
+#         next(reader)#첫줄 띄기
+#         for line in reader:
+#             user = User.objects.get(pk=line[0])
+#             text=line[1].strip()
+#             recent_timelog = user.timelog_set.all().order_by('-created_at').first()
+#             print(line[3])
+#             try:
+#                 if text == '/출근':
+#                     temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
+#
+#                     if not recent_timelog:#이전 자료가 아무것도 없거나
+#                         Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
+#                         half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)# 퇴근-출근 쌍 맞추기
+#                     elif recent_timelog.keyword in [2,4]:#2 : 퇴근
+#                         Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
+#                         half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)
+#                     elif recent_timelog.keyword == 1:# 이 전 기록이 출근일 때 퇴근 만들기
+#                         Timelog.objects.create(user=user, text='/퇴근', keyword=2, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')#1분 빼주기
+#                         Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
+#                         half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)# 퇴근-출근 쌍 맞추기
+#                     elif recent_timelog.keyword == 3:# == 3 이 전 기록이 출근 (재택)
+#                         Timelog.objects.create(user=user, text='/퇴근 (재택)', keyword=4, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')# 얘도
+#                         Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
+#                         half_day_off='오전 반차'if temptime.time()>datetime.time(12) else None)# 퇴근-출근 쌍 맞추기
+#                         # else:
+#                         #     Timelog.objects.create(user=user, text=text, keyword=1, created_at=temptime,
+#                         #                            half_day_off='오전반차'if temptime.time()>datetime.time(12) else None)
+#
+#                 elif text == '/출근 (재택)':
+#                     temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
+#
+#                     if not recent_timelog or recent_timelog.keyword in [2, 4]:
+#                         Timelog.objects.create(user=user, text=text, keyword=3, created_at=temptime)# 퇴근-출근 쌍 맞추기
+#                     elif recent_timelog.keyword == 1:
+#                         Timelog.objects.create(user=user, text='/퇴근', keyword=2, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')  # 1분 빼주기
+#                         Timelog.objects.create(user=user, text=text, keyword=3, created_at=temptime)
+#                     else:
+#                         Timelog.objects.create(user=user, text='/퇴근 (재택)', keyword=4, created_at=temptime-timedelta(minutes=5),half_day_off='자동생성')  # 얘도
+#                         Timelog.objects.create(user=user, text=text, keyword=3, created_at=temptime)
+#
+#                 elif text == '/퇴근 (재택)':
+#                     temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
+#                     if not recent_timelog:
+#                         Timelog.objects.create(user=user, text=text, keyword=4, created_at=temptime)
+#                     elif recent_timelog.keyword == 3:
+#                         Timelog.objects.create(user=user, text=text, keyword=4, created_at=temptime)
+#
+#                 elif text[:3] == '/퇴근' and len(text.split()) == 3: # /퇴근 -2 오후반차
+#                     temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
+#                     if not recent_timelog or recent_timelog.keyword == 1:
+#                         breaks=abs(int(text.split()[1]))
+#                         Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,created_at=temptime-timedelta(hours=breaks), half_day_off='오후 반차')#휴게시간 빼줌
+#                     elif recent_timelog.keyword in [2,4]:# 이전 기록이 /퇴근 또는 /퇴근 (재택) 인 경우 휴게시간+한시간 전 출근 하나 만들고 퇴근 찍음
+#                         breaks=abs(int(text.split()[1]))
+#                         Timelog.objects.create(user=user, text='/출근', keyword=1,created_at=temptime - timedelta(hours=breaks+1),half_day_off='자동생성')
+#                         Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,
+#                                                created_at=temptime - timedelta(hours=breaks),
+#                                                half_day_off='오후 반차')  # 휴게시간 빼줌
+#
+#                 elif text[:3] == '/퇴근' and len(text.split()) == 2:
+#                     temptime = datetime.datetime.strptime(line[3], "%Y-%m-%d %H:%M")  # 서버 연동시 형식 맞춰야함
+#                     if not recent_timelog:
+#                         if text.split()[1]=='오후반차':
+#                             Timelog.objects.create(user=user, text='/출근', keyword=1, created_at=temptime-timedelta(hours=1))#
+#                             Timelog.objects.create(user=user, text=text, keyword=2,
+#                                                    created_at=temptime, half_day_off='오후 반차')
+#                         else:
+#                             breaks = abs(int(text.split()[1]))
+#                             Timelog.objects.create(user=user, text='/출근', keyword=1, breaktime=breaks,created_at=temptime-timedelta(hours=(breaks+1)))#
+#                             Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,created_at=temptime-timedelta(hours=breaks))# 휴게시간 뺴줌
+#                     elif recent_timelog.keyword == 1:# 정상적인 작동
+#                         if text.split()[1] == '오후반차':
+#                             Timelog.objects.create(user=user, text=text, keyword=2,
+#                                                    created_at=temptime, half_day_off='오후 반차')
+#                         else:
+#                             breaks = abs(int(text.split()[1]))
+#                             Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,
+#                                                    created_at=temptime - timedelta(hours=breaks))  # 휴게시간 뺴줌
+#                     elif recent_timelog.keyword in [2,4]: # 이전 기록이 /퇴근 또는 /퇴근 (재택)
+#                         breaks = abs(int(text.split()[1]))
+#                         Timelog.objects.create(user=user, text='/출근', keyword=1,
+#                                                created_at=temptime - timedelta(hours=breaks + 1), half_day_off='자동생성')
+#                         Timelog.objects.create(user=user, text=text, keyword=2, breaktime=breaks,
+#                                                created_at=temptime - timedelta(hours=breaks))  # 휴게시간 빼줌
+#             except:
+#                 pass
+#         return Response({})
 
 
 # grade 정보에 따라 timelog 정보를 보냅니다.
@@ -224,7 +263,7 @@ def gotohome(request):
 @login_required()
 def requestlist(request): # url 줄 때 로그인 한 User id 정보를 id에 담아서 보낼 예정
     if request.user.is_authenticated:
-        request_list = RequestInfo.objects.filter(receiver=request.user)#filter는 쿼리셋 반환 for문 돌려서 인스턴스 받을 수 있음
+        request_list = Request.objects.filter(receiver=request.user)#filter는 쿼리셋 반환 for문 돌려서 인스턴스 받을 수 있음
         #get()의 경우 인스턴스 (객체) 반환해서 get().name 이렇게 바로 참조할 수 있음
         #여기서 나오는 sender는 RequestInfo의 sender인자이 인자는 User모델 외래키. 즉 sender_id= User 테이블의 고유 id가 저장되어있음.
         # 이 값이 인자로 받은 로그인한 유저의 id인 경우
@@ -238,7 +277,7 @@ def requestlist(request): # url 줄 때 로그인 한 User id 정보를 id에 �
 
 # 초이스 할 수 있는 폼 & 수락, 거절에 따른 DB업데이트
 def editrequest(request,pk1,pk2):
-    info=RequestInfo.objects.get(pk=pk1)
+    info=Request.objects.get(pk=pk1)
     if info.receiver == request.user:
         if pk2==1:#수락
             info.status = 1  # status에 1 값 넣어두고 저장 -> 템플릿에서 해당 목록 보일 때에는 status=0일때만 보이게 함.

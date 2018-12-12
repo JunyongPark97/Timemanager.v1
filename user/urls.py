@@ -1,10 +1,18 @@
 
 from django.contrib import admin
 from django.contrib.auth.views import LoginView, LogoutView
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import SimpleRouter
 
 from user import views
-from user.views import ImportCSVView, ImportUserView
+from user.views import ImportUserView, EnterTimelogViewSet, OutTimelogViewSet, EnterAtHomeTimelogViewSet, \
+    OutAtHomeTimelogViewSet
+
+router = SimpleRouter()
+router.register('enter', EnterTimelogViewSet)
+router.register('out', OutTimelogViewSet)
+router.register('enter-at-home', EnterAtHomeTimelogViewSet)
+router.register('out-at-home', OutAtHomeTimelogViewSet)
 
 app_name='user'
 urlpatterns = [
@@ -17,8 +25,9 @@ urlpatterns = [
     path('request-list/',views.requestlist, name='requestlist'),
     path('request-list/<int:pk1>/<int:pk2>/',views.editrequest, name='editrequest'),
     path('list/', views.list, name='list'),
-    path('api/import/', ImportCSVView.as_view(), name='import_csv'),
+    # path('api/import/', ImportCSVView.as_view(), name='import_csv'),
     path('api/import/user', ImportUserView.as_view(), name='import_Usercsv'),
     path('ex/', views.makeEach, name='ex'),
+    path('api/timelog/', include(router.urls)),
 
 ]
