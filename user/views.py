@@ -24,8 +24,8 @@ from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from user.forms import RequestForm1, RequestForm2, RequestForm3
 from user.models import *
 from user.permissions import GradePermission
-from user.serializers import UserSerializer, EnterTimelogSerializer, OutTimelogSerializer, \
-    EnterAtHomeTimelogSerializer, OutAtHomeTimelogSerializer
+from user.serializers import UserSerializer, EnterTimelogSerializer, OutTimelogSerializer,\
+    EnterAtHomeTimelogSerializer, OutAtHomeTimelogSerializer, UpdateRequestSerializer
 
 
 class TimelogReadOnlyViewSet(mixins.CreateModelMixin,# 모델 뷰셋 인데 따로 기능 수정해야 해서 선언
@@ -60,6 +60,15 @@ class OutAtHomeTimelogViewSet(TimelogReadOnlyViewSet):
     permission_classes = (IsAuthenticated, GradePermission)
     serializer_class = OutAtHomeTimelogSerializer
 
+class TimelogUpdateViewset(ModelViewSet):
+    pass
+
+class UpdateRequestViewset(TimelogUpdateViewset):
+    queryset = UpdateRequest.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UpdateRequestSerializer
+
+    v = queryset.filter(,)
 
 def logout_view(request):
     if request.user.is_authenticated:
@@ -263,7 +272,7 @@ def gotohome(request):
 @login_required()
 def requestlist(request): # url 줄 때 로그인 한 User id 정보를 id에 담아서 보낼 예정
     if request.user.is_authenticated:
-        request_list = Request.objects.filter(receiver=request.user)#filter는 쿼리셋 반환 for문 돌려서 인스턴스 받을 수 있음
+        request_list = UpdateRequest.objects.filter(receiver=request.user)#filter는 쿼리셋 반환 for문 돌려서 인스턴스 받을 수 있음
         #get()의 경우 인스턴스 (객체) 반환해서 get().name 이렇게 바로 참조할 수 있음
         #여기서 나오는 sender는 RequestInfo의 sender인자이 인자는 User모델 외래키. 즉 sender_id= User 테이블의 고유 id가 저장되어있음.
         # 이 값이 인자로 받은 로그인한 유저의 id인 경우
@@ -277,7 +286,7 @@ def requestlist(request): # url 줄 때 로그인 한 User id 정보를 id에 �
 
 # 초이스 할 수 있는 폼 & 수락, 거절에 따른 DB업데이트
 def editrequest(request,pk1,pk2):
-    info=Request.objects.get(pk=pk1)
+    info = UpdateRequest.objects.get(pk=pk1)
     if info.receiver == request.user:
         if pk2==1:#수락
             info.status = 1  # status에 1 값 넣어두고 저장 -> 템플릿에서 해당 목록 보일 때에는 status=0일때만 보이게 함.

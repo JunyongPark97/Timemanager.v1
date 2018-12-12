@@ -6,13 +6,14 @@ from rest_framework.routers import SimpleRouter
 
 from user import views
 from user.views import ImportUserView, EnterTimelogViewSet, OutTimelogViewSet, EnterAtHomeTimelogViewSet, \
-    OutAtHomeTimelogViewSet
+    OutAtHomeTimelogViewSet, UpdateRequestViewset
 
 router = SimpleRouter()
 router.register('enter', EnterTimelogViewSet)
 router.register('out', OutTimelogViewSet)
 router.register('enter-at-home', EnterAtHomeTimelogViewSet)
 router.register('out-at-home', OutAtHomeTimelogViewSet)
+router.register('update-request', UpdateRequestViewset)
 
 app_name='user'
 urlpatterns = [

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from user.models import EnterTimelog, OutTimelog, OutAtHomeTimelog, Timelog, EnterAtHomeTimelog, User
+from user.models import EnterTimelog, OutTimelog, OutAtHomeTimelog, EnterAtHomeTimelog, User, UpdateRequest
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -48,3 +48,11 @@ class OutAtHomeTimelogSerializer(TimelogSerializer):
     class Meta:
         model = OutAtHomeTimelog
         fields = '__all__'
+
+class UpdateRequestSerializer(TimelogSerializer):
+    receiver = UserSerializer(required=True)
+    update = serializers.DateTimeField(required=True)
+    reason = serializers.CharField(required=False)
+    class Meta:
+        model = UpdateRequest
+        fields = ('receiver', 'update', 'reason')

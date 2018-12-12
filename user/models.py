@@ -23,7 +23,7 @@ class Timelog(models.Model):# 얘를 상속받을 것
         abstract = True # migrate 안하게
 
 
-class Request(models.Model):
+class UpdateRequest(models.Model):
     sender=models.ForeignKey(User, related_name='senderRequestinfo', on_delete=models.CASCADE)
     receiver=models.ForeignKey(User, related_name='receiverRequestinfo', on_delete=models.CASCADE)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
