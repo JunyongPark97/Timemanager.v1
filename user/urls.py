@@ -6,14 +6,14 @@ from rest_framework.routers import SimpleRouter
 
 from user import views
 from user.views import ImportUserView, EnterTimelogViewSet, OutTimelogViewSet, EnterAtHomeTimelogViewSet, \
-    OutAtHomeTimelogViewSet, UpdateRequestViewset
+    OutAtHomeTimelogViewSet, UpdateRequestEnterViewSet
 
 router = SimpleRouter()
 router.register('enter', EnterTimelogViewSet)
 router.register('out', OutTimelogViewSet)
 router.register('enter-at-home', EnterAtHomeTimelogViewSet)
 router.register('out-at-home', OutAtHomeTimelogViewSet)
-router.register('update-request', UpdateRequestViewset)
+router.register('update-request/enter', UpdateRequestEnterViewSet)
 
 app_name='user'
 urlpatterns = [
@@ -30,5 +30,6 @@ urlpatterns = [
     path('api/import/user', ImportUserView.as_view(), name='import_Usercsv'),
     path('ex/', views.makeEach, name='ex'),
     path('api/timelog/', include(router.urls)),
+    path('update-request/',views.update_request ,name='update_request'),
 
 ]

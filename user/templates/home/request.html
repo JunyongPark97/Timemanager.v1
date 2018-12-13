@@ -1,13 +1,9 @@
 {% extends 'registration/base.html' %}
 {% block content %}
-{#    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>#}
-{#    <link href="{{ STATIC_URL }}css/bootstrap.css" rel="stylesheet" type="text/css"/>#}
-{#    <script src="{{ STATIC_URL }}js/bootstrap.js"></script>#}
-{#    {{ form.media }}#}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <link href="{{ STATIC_URL }}css/bootstrap.css" rel="stylesheet" type="text/css"/>
+    <script src="{{ STATIC_URL }}js/bootstrap.js"></script>
 
-    <form action="" method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <input id="submit" type="submit" value="Submit">
-    </form>
+
+
 {% endblock %}

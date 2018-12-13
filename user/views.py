@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db.models import Q
 from django.http import HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 import datetime
@@ -24,8 +24,8 @@ from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from user.forms import RequestForm1, RequestForm2, RequestForm3
 from user.models import *
 from user.permissions import GradePermission
-from user.serializers import UserSerializer, EnterTimelogSerializer, OutTimelogSerializer,\
-    EnterAtHomeTimelogSerializer, OutAtHomeTimelogSerializer, UpdateRequestSerializer
+from user.serializers import UserSerializer, EnterTimelogSerializer, OutTimelogSerializer, \
+    EnterAtHomeTimelogSerializer, OutAtHomeTimelogSerializer, UpdateRequestSerializer, UpdateRequestEnterSerializer
 
 
 class TimelogReadOnlyViewSet(mixins.CreateModelMixin,# 모델 뷰셋 인데 따로 기능 수정해야 해서 선언
@@ -60,15 +60,28 @@ class OutAtHomeTimelogViewSet(TimelogReadOnlyViewSet):
     permission_classes = (IsAuthenticated, GradePermission)
     serializer_class = OutAtHomeTimelogSerializer
 
-class TimelogUpdateViewset(ModelViewSet):
-    pass
+class UpdateRequestEnterViewSet(ModelViewSet):
+    queryset = UpdateRequest.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UpdateRequestEnterSerializer
 
-class UpdateRequestViewset(TimelogUpdateViewset):
+class UpdateRequestOutViewSet(ModelViewSet):
     queryset = UpdateRequest.objects.all()
     permission_classes = (IsAuthenticated,)
     serializer_class = UpdateRequestSerializer
 
-    v = queryset.filter(,)
+
+
+    # v = queryset.filter(,)
+
+def update_request(request):
+    if request.user.is_authenticated:
+        user = request.user  # user는 에초에 init에 정의되어있음, User모델 추가함으로써 자동으로 해당 모델 참조.
+        last_week = datetime.datetime.now() - datetime.timedelta(days=7)
+        timelogs = EnterTimelog.objects.filter(user=user,
+                                          created_at__gt=last_week)  # 자기자신의 정보 앞의 user는 foreignkey로 user_id와 같음
+
+    return render(request, 'home/update_req.html',context={'timelogs':timelogs})
 
 def logout_view(request):
     if request.user.is_authenticated:

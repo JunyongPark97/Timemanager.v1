@@ -26,7 +26,7 @@ SECRET_KEY = 'vdk4*n0_3iryv5wo=o7^@sa$besz0vq=*9o$yd1+-4)l02ht7o'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'datetimewidget',
-
+    'jandi'
     ]
 
 MIDDLEWARE = [

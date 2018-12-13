@@ -3,6 +3,22 @@ from rest_framework import serializers
 from user.models import EnterTimelog, OutTimelog, OutAtHomeTimelog, EnterAtHomeTimelog, User, UpdateRequest
 
 
+class ObjectRelatedField(serializers.RelatedField):
+    """
+    A custom field to use for the `tagged_object` generic relationship.
+    """
+
+    def to_representation(self, value):
+        """
+        Serialize tagged objects to a simple textual representation.
+        """
+        if isinstance(value, EnterTimelog):
+            return value.pk
+        elif isinstance(value, OutTimelog):
+            return value.pk
+        raise Exception('Unexpected type of tagged object')
+
+
 class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -49,10 +65,19 @@ class OutAtHomeTimelogSerializer(TimelogSerializer):
         model = OutAtHomeTimelog
         fields = '__all__'
 
-class UpdateRequestSerializer(TimelogSerializer):
-    receiver = UserSerializer(required=True)
-    update = serializers.DateTimeField(required=True)
-    reason = serializers.CharField(required=False)
+class UpdateRequestSerializer(serializers.ModelSerializer):
+    pass
+
+class UpdateRequestEnterSerializer(UpdateRequestSerializer):
+    object_id = serializers.PrimaryKeyRelatedField(queryset=EnterTimelog.objects.all())
     class Meta:
         model = UpdateRequest
-        fields = ('receiver', 'update', 'reason')
+        fields = '__all__'
+
+
+class UpdateRequestOutSerializer(UpdateRequestSerializer):
+    pass
+class UpdateRequestEnterAtHomeSerializer(UpdateRequestSerializer):
+    pass
+class UpdateRequestOutAtHomeSerializer(UpdateRequestSerializer):
+    pass

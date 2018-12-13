@@ -36,6 +36,7 @@ class UpdateRequest(models.Model):
 
 
 
+
 class EnterTimelog(Timelog):
     pass
 
