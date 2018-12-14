@@ -57,15 +57,15 @@ class UpdateRequest(models.Model):
         ordering = ['-pub_date']
 
 
-def create_entry(sender, **kwargs):
-    if 'created' in kwargs:
-        if kwargs['created']:
-            instance = kwargs['instance']
-            ctype = ContentType.objects.get_for_model(instance)
-            entry = Entry.objects.get_or_create(content_type=ctype,
-                                                object_id=instance.id,
-                                                pub_date=instance.pub_date)
-
-
-post_save.connect(create_entry, sender=Post)
-post_save.connect(create_entry, sender=Url)
+# def create_entry(sender, **kwargs):
+#     if 'created' in kwargs:
+#         if kwargs['created']:
+#             instance = kwargs['instance']
+#             ctype = ContentType.objects.get_for_model(instance)
+#             entry = Entry.objects.get_or_create(content_type=ctype,
+#                                                 object_id=instance.id,
+#                                                 pub_date=instance.pub_date)
+#
+#
+# post_save.connect(create_entry, sender=Post)
+# post_save.connect(create_entry, sender=Url)
