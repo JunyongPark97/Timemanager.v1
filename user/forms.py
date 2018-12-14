@@ -1,7 +1,6 @@
 from django import forms
 
 from user.models import User, UpdateRequest
-from datetimewidget.widgets import DateTimeWidget
 
 # class DefaultField:
 #     def __call__(self, *args, **kwargs):

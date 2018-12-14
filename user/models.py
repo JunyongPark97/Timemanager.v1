@@ -6,8 +6,9 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 # Create your models here.
-import user
+from django.db.models.signals import post_save
 
+import user
 
 class User(AbstractUser):
     grade= models.IntegerField()
@@ -23,9 +24,26 @@ class Timelog(models.Model):# 얘를 상속받을 것
         abstract = True # migrate 안하게
 
 
+class EnterTimelog(Timelog):
+    pass
+
+
+class OutTimelog(Timelog):
+    half_day_off = models.CharField(blank=True, null=True, max_length=10)#반차 기록
+    breaktime = models.IntegerField(default=0)
+
+
+class EnterAtHomeTimelog(Timelog):
+    pass
+
+
+class OutAtHomeTimelog(Timelog):
+    breaktime = models.IntegerField(default=0)
+
+
 class UpdateRequest(models.Model):
-    sender=models.ForeignKey(User, related_name='senderRequestinfo', on_delete=models.CASCADE)
-    receiver=models.ForeignKey(User, related_name='receiverRequestinfo', on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, related_name='senderRequestinfo', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, related_name='receiverRequestinfo', on_delete=models.CASCADE)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     time_log = GenericForeignKey('content_type', 'object_id')
@@ -33,19 +51,21 @@ class UpdateRequest(models.Model):
     status = models.IntegerField(default=0, choices=((0,'대기중'),(1,'수락'),(2,'거절')))
     reason = models.TextField(null=True)
     breaktime = models.IntegerField()
+    pub_date = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-pub_date']
 
 
+def create_entry(sender, **kwargs):
+    if 'created' in kwargs:
+        if kwargs['created']:
+            instance = kwargs['instance']
+            ctype = ContentType.objects.get_for_model(instance)
+            entry = Entry.objects.get_or_create(content_type=ctype,
+                                                object_id=instance.id,
+                                                pub_date=instance.pub_date)
 
 
-class EnterTimelog(Timelog):
-    pass
-
-class OutTimelog(Timelog):
-    half_day_off = models.CharField(blank=True, null=True, max_length=10)#반차 기록
-    breaktime = models.IntegerField(default=0)
-
-class EnterAtHomeTimelog(Timelog):
-    pass
-
-class OutAtHomeTimelog(Timelog):
-    breaktime = models.IntegerField(default=0)
+post_save.connect(create_entry, sender=Post)
+post_save.connect(create_entry, sender=Url)

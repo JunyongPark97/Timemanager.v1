@@ -1,21 +1,21 @@
 {% extends 'registration/base.html' %}
 {% block content %}
-    <script>
-        $(document).ready(
-            function() {
-                $.ajax({
-                url: '/api/timelog/enter/',
-                type: 'get',
-
-                success: function(data) {
-                    document.body.innerText = data;
-                },
-                error:function(request,status,error) {
-                    alert("오류가 발생했습니다! 페이지를 새로고침한 후, 작업을 다시 시작해 주세요. code:"+request.status+"\n"+"error:"+error+"\n"+"message:"+request.responseText);
-                }
-            });
-            });
-    </script>
+{#    <script>#}
+{#        $(document).ready(#}
+{#            function() {#}
+{#                $.ajax({#}
+{#                url: '/api/timelog/enter/',#}
+{#                type: 'get',#}
+{##}
+{#                success: function(data) {#}
+{#                    document.body.innerText = data;#}
+{#                },#}
+{#                error:function(request,status,error) {#}
+{#                    alert("오류가 발생했습니다! 페이지를 새로고침한 후, 작업을 다시 시작해 주세요. code:"+request.status+"\n"+"error:"+error+"\n"+"message:"+request.responseText);#}
+{#                }#}
+{#            });#}
+{#            });#}
+{#    </script>#}
 {#{% if user.is_authenticated and user.is_active %}#}
 {#    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>#}
 {#    <style>#}
